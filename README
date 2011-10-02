@@ -1,0 +1,1 @@
+Smush file is a proof-of-concept for a service that will take a set of static files for a web page (think JS/CSS) and smush them together into a single file, for client-side performance.

@@ -1,0 +1,69 @@
+{{define "index"}}
+{{template "header" . }}
+	<div class="row">
+		<div class="span3 columns right-border">
+			<form action="/smush" method="post">
+				<div class="row">
+					<div class="span3 columns">
+						<h2>Smush some files!</h2>
+					</div>
+				</div>
+				<div class="row">
+					<div class="span1 columns">
+						<label for="name">Group Name:</label>
+					</div>
+					<div class="span2 columns">
+						<input name="name" type="text" id="name" class="full" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="span1 columns">
+						<label for="source">Source URL(s):</label>
+					</div>
+					<div class="span2 columns">
+						<input name="source" type="text" class="full" id="source1" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="offset1 span2 columns">
+						<input name="source" type="text" class="full" id="source1" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="offset1 span2 columns">
+						<input name="source" type="text" class="full" id="source1" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="offset1 span2 columns">
+						<input name="source" type="text" class="full" id="source1" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="offset1 span2 columns">
+						<input name="source" type="text" class="full" id="source1" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="span3 columns">
+						<input value="Smush!" type="submit" class="rounded positive button"  />
+						<input value="Cancel" type="reset" class="rounded neutral button"  />
+					</div>
+				</div>
+			</form>
+		</div>
+		<div class="span5 columns">
+			<div class="row">
+				<div class="span5 columns">
+					<h2>What is Smushfile?</h2>
+				</div>
+			</div>
+			<div class="row">
+				<div class="span5 columns">
+					<p>Smushfile is a service that allows you to smush a bunch of text files (like Javascript or CSS) together. Why would you want to do this? Because it's way faster than asking your users to download a bunch of separate files. You could totally do this yourself, but it's way easier to have an automated process take care of boring stuff like this.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+{{template "footer"}}
+{{end}}

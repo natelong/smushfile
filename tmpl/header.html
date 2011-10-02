@@ -1,0 +1,15 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html>
+<head>
+	<title>{{if .Title}}{{.Title}} - {{end}}Smushfile</title>
+	<link rel="stylesheet" href="/css/grid.css" />
+</head>
+<body>
+	<div class="grid-container">
+		<div class="row">
+			<div class="span8 columns header">
+				<h1>Smushfile</h1>
+			</div>
+		</div>
+{{end}}
