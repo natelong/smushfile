@@ -6,27 +6,25 @@ import (
 	"template"
 	"io"
 	"strings"
-//	"json"
 	"os"
+	"url"
+	"time"
+	"strconv"
 )
 
 var tmpls *template.Set
+
+const compilerURL = "http://closure-compiler.appspot.com/compile"
 
 type Page struct {
 	Title	string
 	Data	string
 }
 
-type SmushRequest struct {
-	Name	string
-	URLs	[]string
-	Result	string
-}
-
 func ReadWholeFile( f io.ReadCloser ) ( r string, err os.Error ) {
 	defer f.Close()
 	const NBUF = 512
-    var buf [NBUF]byte
+    var buf [ NBUF ]byte
     for {
         switch nr, err := f.Read( buf[:] ); true {
         case nr < 0:
@@ -43,6 +41,32 @@ func ReadWholeFile( f io.ReadCloser ) ( r string, err os.Error ) {
 	return
 }
 
+func RequireParams( request *http.Request, params []string ) ( success bool ){
+	err := request.ParseForm()
+	if err != nil {
+		return false
+	}
+
+	for _, v := range params{
+		if thisParam, exists := request.Form[ v ]; exists{
+			hasGoodValue := false;
+			for _, paramValue := range thisParam{
+				if len( paramValue ) > 0{
+					hasGoodValue = true
+					break;
+				}
+			}
+			if !hasGoodValue{
+				return false
+			}
+		}else{
+			return false
+		}
+	}
+
+	return true
+}
+
 func SmushIndex( response http.ResponseWriter, request *http.Request ){
 	var page = Page{
 		Title: "Index",
@@ -55,28 +79,25 @@ func SmushIndex( response http.ResponseWriter, request *http.Request ){
 }
 
 func SmushFiles( response http.ResponseWriter, request *http.Request ){
+	var requiredParams = []string{ "name", "source" }
 
-	// parse the form values from the body so we can interact with them
-	err := request.ParseForm()
-	if( err != nil ){
-		log.Println( "Couldn't parse form values: ", err.String() )
-		http.Error( response, "Couldn't parse form values", http.StatusInternalServerError )
+	if request.Method != "POST" {
+		http.Error( response, "Must post from main Smush form", http.StatusInternalServerError )
+		return
+	}
+
+	if !RequireParams( request, requiredParams ){
+		http.Error( response, "Missing required params", http.StatusInternalServerError )
 		return
 	}
 
 	var source []string
-	var exists bool
 
-	// if there's a "source" param, iterate over its values and add them to a string for easy logging
-	if source, exists = request.Form[ "source" ]; !exists {
-		log.Println( "Couldn't parse form values: ", err.String() )
-		http.Error( response, "Request missing 'source' param", http.StatusInternalServerError )
-		return
-	}
-
+	source = request.Form[ "source" ]
 	sourceStrings := make( []string, len( source ) )
 	i := 0
 
+	// move the source urls into a new array so we can preserve the order, but skip blank entries
 	for _, v := range source {
 		if v != ""{
 			sourceStrings[ i ] = v
@@ -84,36 +105,43 @@ func SmushFiles( response http.ResponseWriter, request *http.Request ){
 		}
 	}
 
-	result := ""
+	compileParamString := "compilation_level=SIMPLE_OPTIMIZATIONS"
+	compileParamString += "&output_format=text"
+	compileParamString += "&output_info=compiled_code"
+
 	for _, v := range sourceStrings[ :i ]{
-		r, err := http.Get( v )
-		if( err != nil ){
-			log.Printf( "Couldn't get %v: %v", v, err.String() )
-			continue
-		}
-		log.Printf( "Successfully fetched: %v\n\t%v", r.Status, v )
-		fileContents, _ := ReadWholeFile( r.Body )
-		result += fileContents
+		compileParamString += "&code_url=" + v
 	}
 
-	response.Header().Add( "content-type", "text/plain" )
-	io.WriteString( response, result )
+	compileParams, _ := url.ParseQuery( compileParamString )
+	compileResponse, _ := http.PostForm( compilerURL, compileParams )
 
-	/*	
-	response.Header().Add( "content-type", "application/json" )
-	sReq := SmushRequest{
-		"test",
-		sourceStrings[ :i ],
-		result,
+	result, _ := ReadWholeFile( compileResponse.Body )
+	if len( result ) == 1 {
+		http.Error( response, "Something went wrong with the Closure Compiler", http.StatusInternalServerError )
+		return
 	}
 
-	sRes, err := json.Marshal( sReq )
+	currentTime := time.LocalTime().Nanoseconds()
+
+	dirName := "out/" + strconv.Itoa64( currentTime )
+	fileName := dirName + "/" + request.Form[ "name" ][ 0 ] + ".min.js"
+	if err := os.Mkdir( dirName, uint32( 0777 ) ); err != nil{
+		http.Error( response, "Couldn't create output folder", http.StatusInternalServerError )
+		return
+	}
+	outputFile, err := os.Create( fileName )
 	if err != nil{
-		log.Println( "Couldn't marshal request to JSON: ", err.String() )
-		http.Error( response, "Couldn't marshal request to JSON", http.StatusInternalServerError )
+		http.Error( response, "Couldn't create output file", http.StatusInternalServerError )
+		return
 	}
-	io.WriteString( response, string( sRes ) )
-	*/
+	_, err = outputFile.WriteString( result )
+	if err != nil{
+		http.Error( response, "Couldn't write output to file", http.StatusInternalServerError )
+		return
+	}
+
+	http.Redirect( response, request, "/" + fileName, http.StatusFound )
 }
 
 // Server static files, like CSS and JS directly
@@ -132,7 +160,7 @@ func StaticFile( response http.ResponseWriter, request *http.Request ){
 	}
 
 	// Log that a static file was served
-	log.Print( "Serving ", url )
+	log.Print( "Serving static file ", url )
 	
 	// serve the file
 	http.ServeFile( response, request, url )
